@@ -1,52 +1,289 @@
 ## Práctica 3. Detección y reconocimiento de formas
 
-### Contenidos
-
-[Aspectos cubiertos](#31-aspectos-cubiertos)  
-[Entrega](#32-entrega)
-
-### 3.1. Aspectos cubiertos
-
-En esta práctica el objetivo es adquirir nociones para extraer información geométrica de objetos presentes en una imagen, con el fin de caracterizarlos y posteriormente ser capaz de identificarlos de forma automática en categorías. El cuaderno de la práctica, *VC_P3.ipynb*, contiene diversos ejemplos mostrando variantes para la detección de objetos presentes en la imagen, como paso previo a su caracterización geométrica. En este sentido, se plantea el uso del umbralizado y la detección de contornos. Para el caso concreto de monedas, se considera también la utilización de la transformada de Hough para la localización de formas circulares.
-
-Si bien no es necesario instalar paquetes adicionales para las primeras celdas del cuaderno, de cara a poder obtener la matriz de confusión, es requisito instalar en el *environment* los paquetes *scikit-learn* y *seaborn* para disponer de utilidades para el cálculo de [métricas](https://developers.google.com/machine-learning/crash-course/classification/accuracy-precision-recall?hl=es-419). Con *pip* sería algo como:
-
-```
-pip install scikit-learn seaborn
-```
+En esta práctica se ha implementado por mi parte el clasificador de monedas y el de microplasticos. Veamos primero el de monedas.
 
 
-### 3.2. Entrega
+## Problema de las monedas
 
-Para la entrega de esta práctica, son dos las tareas planteadas. En la primera tarea, el reto o tarea consiste en determinar la cantidad de dinero y monedas presentes en la imagen. Una extensión válida sería la presencia de objetos que no sean monedas en la imagen anañizada. 
-
-Para la segunda tarea, se proporcionan imágenes de tres clases de objetos recogidos en playas canarias: fragmentos plásticos, *pellets* y alquitrán. Para cada categoría se proporciona una imagen completa y una subimagen de la misma. Las dos primeras categorías se consideran microplásticos cuando miden menos de 5mm, mientras que la tercera es muy habitual encontrarlas en playas canarias. Observar que dado que cada imagen contiene muestras de una única categoría, disponen de un conjunto de datos anotado. La tarea propuesta consiste en primer término, hacer uso de las imágenes proporcionadas, extraer de forma automatizada las partículas e identificar patrones en sus características geométricas y de apariencia que puedan permitir la clasificación de las partículas en dichas imágenes. Las características que determinen se usarán para analizar la imagen de test proporcionada, con presencia de muestras de las tres clases. El resultado obtenido debe mostrarse por medio las métricas mostradas en el cuaderno, incluyendo la matriz de confusión, donde se comparan las anotaciones con las predicciones.
-
-![Confusión](MatrizConfu.png)  
-*Ejemplo de matriz de confusión*
-
-A la hora de considerar posibles características geométricas, como punto de partida para la extracción de descriptores de las partículas, se proporciona enlace al trabajo [SMACC: A System for Microplastics Automatic Counting and Classification](https://doi.org/10.1109/ACCESS.2020.2970498) en el que se adoptan algunas propiedades geométricas para dicho fin. De forma resumida, las características geométricas utilizadas en dicho trabajo fueron:
-
-- Área en píxeles (A)
-- Perímetro en píxeles (P)
-- Compacidad (relación del cuadrado del perímetro con el área C=P^2/A)
-- Relación del área de la partícula con el área del contenedor que la contiene
-- Relación del ancho y el alto del contenedor
-- Relación entre los ejes de la elipse ajustada
-- Definido el centroide, relación entre las distancias menor y mayor al contorno
-
-En relación a la segmentación de las partículas, una probable primera observación es que la aplicación del umbralizado para separarlas del fondo, es delicada. Preprocesamiento como suavizar la imagen de entrada o reducir su tamaño, o aplicar heurísticas basadas en el tamaño mínimo y máximo de los contornos localizados, y la distancia mínima entre ellos, pueden ayudar a filtrar falsas detecciones, pero a pesar de ello, será un desafío obtener una separación perfecta para todas las imágenes con la misma estrategia. Añadir, que la imagen de fragmentos contiene unas 80 partículas, la de *pellets* unas 55 y la de alquitrán unas 54.
+En este problema tenemos que detectar cuales son las monedas en la imagen que nos proporcionan para finalmente contar el dinero total de la imagen
 
 
-![Contornos](Output.jpg)  
-*Ejemplo ilustrativo contornos detectados en la imagen de fragmentos*
+'''
+# --- Detección de círculos ---
+img = cv2.imread('Monedas.jpg')
+gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-Si quieren ir más allá, sugerir explorar técnicas de segmentación recientes y potentes como [Segment anything o SAM](https://segment-anything.com) o [OneFormer](https://github.com/SHI-Labs/OneFormer), y extensiones como , [SAM 2](https://github.com/facebookresearch/segment-anything-2), [FastSAM](https://github.com/CASIA-IVA-Lab/FastSAM) o [Count anything](https://github.com/ylqi/Count-Anything). No duden en compartir otras alternativas que descubran.
+# Aumentar contraste
+clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+gris_contraste = clahe.apply(gris)
 
-La entrega se realizará a través del campus virtual, remitiendo un enlace a **github**, donde se alojará el **cuaderno o cuadernos** de resolución de las tareas, además de un **README** describiendo el proceso adoptado para resolver cada tarea, integrando de imágenes ilustrativas, además de las métricas obtenidas y matriz de confusión de la segunda tarea.
+# Suavizado
+pimg = cv2.GaussianBlur(gris_contraste, (11, 11), 1)
+bordes = cv2.Canny(pimg, 70, 150)
 
-<!---Momentos en trabajo de Nayar sobre Binary images https://cave.cs.columbia.edu/Statics/monographs/Binary%20Images%20FPCV-1-3.pdf -->
+# Detección de círculos
+circ = cv2.HoughCircles(
+    bordes, cv2.HOUGH_GRADIENT, 1, 100,
+    param1=100, param2=50, minRadius=50, maxRadius=150
+)
+
+if circ is not None:
+    circ = np.uint16(np.around(circ))
+    print(f"Se detectaron {len(circ[0])} círculos.")
+else:
+    print("No se detectaron círculos.")
+    circ = np.array([[]])
+'''
+
+En primer lugar hemos cargado las imagenes además de procesarlas. Usamos CLAHE para aumentar el contraste de forma inteligente dependiendo de la intensidad del histograma (Esto me ayudó especialmente con la moneda de 1cent que tenía demasiado brillo y no captaba bien el borde). Además usamos el gaussiano para facilitar la detección de bordes y canny para la deteccion de los mismos.
+
+Usamos houghCircles para la deteccion de circulos
+
+'''
+# --- Mostrar imagen y capturar clic de referencia (moneda de 2€) ---
+click_point = []
+
+def click_event(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        click_point.append((x, y))
+        print("Clic en:", x, y)
+        cv2.destroyAllWindows()
+
+img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+for (x, y, r) in circ[0]:
+    cv2.circle(img, (x, y), r, (0, 255, 0), 2)
+
+cv2.imshow("Haz clic sobre la moneda de 2€", img)
+cv2.setMouseCallback("Haz clic sobre la moneda de 2€", click_event)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+'''
+
+Capturamos el click del raton para saber cual es la moneda de referencia seleccionada y mediante pitagoras sacamos cual es dicha moneda.
 
 
-***
-Bajo licencia de Creative Commons Reconocimiento - No Comercial 4.0 Internacional
+'''
+# --- Buscar círculo seleccionado ---
+    selected_circle = None
+    for (x, y, r) in circ[0]:
+        distancia = np.sqrt((cx - x)**2 + (cy - y)**2)
+        if distancia <= r:
+            selected_circle = (x, y, r)
+            break
+
+    if selected_circle:
+        x2e, y2e, r2e = selected_circle
+        print(f"Referencia de 1€: centro ({x2e}, {y2e}), radio {r2e}")
+
+        # --- Diccionario de monedas ---
+        diccionariodemonedas = {
+            2.0: 25.75,    # 2 euros
+            1.0: 23.25,    # 1 euro
+            0.50: 24.25,   # 50 céntimos
+            0.20: 22.25,   # 20 céntimos
+            0.10: 19.75,   # 10 céntimos
+            0.05: 21.25,   # 5 céntimos
+            0.02: 18.75,   # 2 céntimos
+            0.01: 16.26    # 1 céntimo
+        }
+
+        total = 0
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        print("\n--- Depuración de identificación de monedas ---")
+        for idx, (x, y, r) in enumerate(circ[0]):
+            # Relación píxeles a mm
+            relacionPixeles = r / r2e
+            moneda_identificada = None
+            min_diferencia = float('inf')
+
+            print(f"\nCírculo {idx+1}: centro=({x},{y}), radio={r}")
+            print(f"Radio relativo a 2€: {relacionPixeles:.3f}")
+
+            for valor, diametro in diccionariodemonedas.items():
+                radio_estimado = diametro * (r2e / diccionariodemonedas[1.0])
+                diferencia = abs(r - radio_estimado)
+                print(f"  Comparando con {valor}€: radio estimado={radio_estimado:.2f}, diferencia={diferencia:.2f}")
+                if diferencia < min_diferencia:
+                    min_diferencia = diferencia
+                    moneda_identificada = valor
+
+            print(f"--> Moneda asignada: {moneda_identificada}€ (diferencia mínima={min_diferencia:.2f})")
+            total += moneda_identificada
+
+            # Dibujar círculo y valor
+            cv2.circle(img_rgb, (x, y), r, (0, 255, 0), 2)
+            cv2.putText(img_rgb, f"{moneda_identificada}E", (x-30, y), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,0,0), 2)
+
+        print(f"\nDinero total: {total}€")
+
+        # Mostrar resultado
+        plt.figure(figsize=(10,8))
+        plt.axis("off")
+        plt.imshow(img_rgb)
+        plt.title("Monedas detectadas")
+        plt.show()
+'''
+
+En esta parte finalmente mediante una moneda de referencia (en este ejemplo 1€) podemos sacar cuantos px deberían medir el resto de monedas teniendo los mm de cada una. Hago un bucle donde comparo cada circulo con cada moneda y le asigno la moneda que esté más cerca.
+
+El algoritmo finalmente calcula bien cuanto dinero hay en la imagen
+
+![Resultado monedas](./output_monedas.png)
+
+
+
+## Problema de los microplásticos
+
+
+En el siguiente problema se nos plantea la detección y segmentación de tres tipos de microplasticos: los fragmentos desprendidos de otros plasticos, los pelletes y el alquitran. Se nos proporcionan tres imagenes donde cada una contiene un conjunto de particulas de cada tipo para extraer sus caracteristicas. Después una imagen donde están todas las particulas mezcladas que la que usaremos para poner aprueba nuestro algoritmo.
+
+
+'''
+# Función proporcionada por el usuario para preprocesar y segmentar
+def preprocess_and_segment(img):
+    # Aplicar un filtro Gaussian Blur
+    img_blur = cv2.GaussianBlur(img, (5,5), 0)
+    
+    # Aplicar umbralización adaptativa usando Otsu
+    _, thresh = cv2.threshold(img_blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    
+    # Contornos
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Filtrar contornos por área eliminando asi el ruido
+    contours = [c for c in contours if cv2.contourArea(c) > 100]
+    
+    return contours
+'''
+
+En primer lugar definimos como vamos a extraer los contornos de las imagenes. Yo apliqué primero el gaussiano para ayudar con los bordes, despues imbralicé la imagen usando OTSU para una mejor umbralización y finalmente busqué los contornos y descarté las particulas menos a cierto numero para eliminar ruido.
+
+'''
+# Función para extraer características de una imagen, incluyendo 
+def extract_features(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # Convertir a grises para segmentación
+    contours = preprocess_and_segment(gray)  # Usar la nueva función para obtener contornos
+    
+    if contours:  # Si hay contornos
+        cnt = max(contours, key=cv2.contourArea)  # Contorno más grande
+        mask = np.zeros(gray.shape, np.uint8)  # Crear máscara para el contorno
+        cv2.drawContours(mask, [cnt], -1, 255, -1)  # Dibujar el contorno en la máscara
+        
+        # Características geométricas
+        area = cv2.contourArea(cnt)  # Área
+        perimeter = cv2.arcLength(cnt, True)  # Perímetro
+        compactness = (perimeter ** 2) / area if area > 0 else 0  # Compacidad
+        
+        x, y, w, h = cv2.boundingRect(cnt)  # Rectángulo contenedor
+        bounding_area = w * h
+        area_ratio = area / bounding_area if bounding_area > 0 else 0  # Relación área/partícula con contenedor
+        aspect_ratio = w / h if h > 0 else 0  # Relación ancho/alto
+        
+        if len(cnt) >= 5:  # Para ajustar elipse
+            ellipse = cv2.fitEllipse(cnt)
+            major_axis = max(ellipse[1])  # Eje mayor
+            minor_axis = min(ellipse[1])  # Eje menor
+            ellipse_ratio = minor_axis / major_axis if major_axis > 0 else 0  # Relación ejes
+        else:
+            ellipse_ratio = 0
+        
+        M = cv2.moments(cnt)  # Centroide
+        if M["m00"] != 0:
+            cx = M["m10"] / M["m00"]
+            cy = M["m01"] / M["m00"]
+            distances = [np.sqrt((point[0][0] - cx)**2 + (point[0][1] - cy)**2) for point in cnt]
+            if distances:
+                max_dist = max(distances)
+                min_dist = min(distances)
+                dist_ratio = min_dist / max_dist if max_dist > 0 else 0  # Relación distancias
+            else:
+                dist_ratio = 0
+        else:
+            dist_ratio = 0
+        
+        # Características de color: Calcular medias de R, G, B en la región del contorno
+        mean_colors = cv2.mean(img, mask=mask)  # cv2.mean devuelve [B, G, R, ...], pero usaremos B, G, R
+        mean_b = mean_colors[0]  # Media de Blue
+        mean_g = mean_colors[1]  # Media de Green
+        mean_r = mean_colors[2]  # Media de Red
+        
+       
+        return [area, perimeter, compactness, area_ratio, aspect_ratio, ellipse_ratio, dist_ratio, mean_r, mean_g, mean_b]
+    return None  # Sin contornos válidos
+'''
+
+En está funcion extraemos las caracteristicas de cada particula. Usaremos:
+
+Área: Superficie total ocupada por el contorno detectado.
+
+Perímetro: Longitud del borde del contorno.
+
+Compacidad: Medida de cuán compacta o irregular es la forma.
+
+Relación área/rectángulo contenedor: Proporción entre el área del contorno y el área del rectángulo que lo contiene.
+
+Relación ancho/alto: Proporción entre el ancho y la altura del rectángulo que encierra la forma.
+
+Relación de ejes de la elipse: Comparación entre el eje menor y el eje mayor de la elipse ajustada al contorno.
+
+Relación de distancias al centroide: Relación entre la distancia mínima y máxima de los puntos del contorno al centroide.
+
+Media del canal rojo: Promedio de la intensidad del color rojo dentro del contorno.
+
+Media del canal verde: Promedio de la intensidad del color verde dentro del contorno.
+
+Media del canal azul: Promedio de la intensidad del color azul dentro del contorno.
+
+'''
+# Función de clasificación heurística con normalización y depuración
+def classify(features_new):
+    features_list = [features_FRA, features_PEL, features_TAR]  # Lista de vectores (ahora de 10 elementos)
+    labels = ['FRA', 'PEL', 'TAR']  # Etiquetas correspondientes
+    
+    if features_new is None:
+        return 'UNKNOWN'  # Caso de error
+    
+    # Filtrar vectores válidos y normalizar
+    valid_features = [feat for feat in features_list if feat is not None]  # Solo vectores válidos
+    if len(valid_features) == 0:
+        print("Error: No hay características válidas en el entrenamiento.")
+        return 'UNKNOWN'
+    
+    # Normalización: Calcular media y std de los vectores de entrenamiento válidos
+    valid_features_array = np.array(valid_features)  # Convertir a array
+    means = np.mean(valid_features_array, axis=0)  # Media por característica
+    stds = np.std(valid_features_array, axis=0)  # Desviación estándar por característica
+    stds[stds == 0] = 1  # Evitar división por cero
+    
+    # Normalizar features_new
+    features_new_normalized = (np.array(features_new) - means) / stds  # Estandarizar
+    
+    distances = []  # Calcular distancias euclidianas normalizadas
+    for feat in features_list:
+        if feat is not None:
+            feat_normalized = (np.array(feat) - means) / stds  # Normalizar cada vector de entrenamiento
+            distance = np.linalg.norm(features_new_normalized - feat_normalized)  # Distancia euclidiana
+            distances.append(distance)
+        else:
+            distances.append(float('inf'))  # Distancia infinita para vectores inválidos
+    
+    if all(dist == float('inf') for dist in distances):  # Si todas son infinitas
+        print("Error: Todas las distancias son infinitas.")
+        return 'UNKNOWN'
+    
+    min_index = np.argmin(distances)  # Índice de la mínima distancia
+    return labels[min_index]  # Devolver la etiqueta
+'''
+
+Finalmente calculamos las distancia euclideas entre los vectores de las particulas a detectar y cada vector que hemos calculado con las imagenes de ejemplo. El vector de referencia que se acerce más a la particulas será el nombre que le demos a esa misma particula. Los resultados obtenidos son:
+
+Accuracy: 0.4148936170212766
+Precision: 0.49426767192724635
+Recall: 0.4148936170212766
+F1 Score: 0.41876439628058987
+
+![matriz de confusion](./matriz_confusion.png)
+
+
