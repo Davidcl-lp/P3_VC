@@ -130,7 +130,7 @@ A partir de su posición, podemos identificar el círculo correspondiente y calc
 
 En esta parte, tomando una moneda de referencia (por ejemplo, **1 €**), calculamos el tamaño relativo de las demás monedas en píxeles.  
 El algoritmo compara cada círculo detectado con los valores reales de las monedas en milímetros, asignando a cada una el valor más probable.  
-Finalmente, calcula correctamente el **dinero total presente en la imagen**.
+Finalmente, calcula correctamente el **dinero total presente en la imagen** que es de 3.88€.
 
 ![Resultado monedas](./output_monedas.png)
 
@@ -236,7 +236,7 @@ En esta función extraemos las **características** de cada partícula. Usamos:
 ```python
 # Función de clasificación heurística con normalización
 def classify(features_new):
-    features_list = [features_FRA, features_PEL, features_TAR]  # Lista de vectores (ahora de 10 elementos)
+    features_list = [features_FRA, features_PEL, features_TAR]  # Lista de vectores
     labels = ['FRA', 'PEL', 'TAR']  # Etiquetas correspondientes
     
     if features_new is None:
